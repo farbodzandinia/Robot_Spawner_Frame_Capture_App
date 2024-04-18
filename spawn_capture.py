@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from datetime import datetime
 from PyQt5 import uic
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QApplication, QMainWindow
@@ -8,23 +7,27 @@ from PyQt5.QtGui import QImage, QPixmap
 
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
-
 from gazebo_msgs.srv import SetModelState, SetModelStateRequest
 
-import numpy as np
 import sys
 import os
 import signal
 import rospy
+from datetime import datetime
 
-class RobotApp(QMainWindow):
+class RSFCApp(QMainWindow):
     def __init__(self):
-        super(RobotApp, self).__init__()
+        super(RSFCApp, self).__init__()
+        """
+        Initializes the RSFCApp GUI application.
+        Sets up the user interface from a .ui file, initializes ROS node,
+        connects GUI elements to functionality, and subscribes to necessary ROS topics.
+        """
         # Load the .ui file
         uic.loadUi('spawn_capture.ui', self)
 
         # ROS initialization
-        rospy.init_node('robot_control_ui', anonymous=True)
+        rospy.init_node('rsfc_app_ui', anonymous=True)
         self.bridge = CvBridge()
 
         # Connect buttons
@@ -38,6 +41,11 @@ class RobotApp(QMainWindow):
         self.current_frame = None
 
     def spawn_robot(self):
+        """
+        Spawns a robot model in the simulation environment.
+        Retrieves robot position and orientation from the GUI and sends a request
+        to the ROS service to update the robot's state in the Gazebo simulator.
+        """
         coordinate_x = self.coordinate_x.value()
         coordinate_y = self.coordinate_y.value()
         coordinate_z = self.coordinate_z.value()
@@ -57,11 +65,15 @@ class RobotApp(QMainWindow):
         try:
             rospy.wait_for_service('/gazebo/set_model_state')
             set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
-            resp = set_state(msg)
+            set_state(msg)
         except rospy.ServiceException as e:
             rospy.logerr(e)
 
     def update_camera_feed(self, data):
+        """
+        Updates the GUI to display the latest frame from the robot's camera.
+        Converts the ROS image message to a QImage and displays it on the GUI.
+        """
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         height, width, channel = cv_image.shape
         bytes_per_line = 3 * width
@@ -69,6 +81,11 @@ class RobotApp(QMainWindow):
         self.camera_feed.setPixmap(QPixmap.fromImage(self.current_frame))
 
     def capture_frame(self):
+        """
+        Captures the current frame from the camera feed and saves it as a PNG image.
+        Constructs a file name using the current timestamp and updates the GUI
+        to reflect the save status.
+        """
         if self.current_frame:
             
             folder_path = "screenshots"
@@ -91,12 +108,16 @@ class RobotApp(QMainWindow):
             self.capture_frame_output.setText("No screenshot captured. Camera feed might be empty.")
 
 if __name__ == '__main__':
+    """
+    Main entry point of the application. Initializes the application,
+    sets up the main window, handles system signals, and starts the Qt event loop.
+    """
     app = QApplication(sys.argv)
     
     # Handle SIGINT to close the application
     signal.signal(signal.SIGINT, lambda *args: app.quit())
 
-    window = RobotApp()
+    window = RSFCApp()
     window.show()
     
     # Use a timer to handle events every 500 milliseconds to process the SIGINT and other events
